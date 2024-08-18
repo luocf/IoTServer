@@ -1,0 +1,11 @@
+fastapi==0.112.0            # FastAPI 版本，根据实际使用的版本进行调整
+uvicorn[standard]==0.30.5  # Uvicorn 作为 ASGI 服务器，包含标准依赖
+sqlalchemy==2.0.20         # SQLAlchemy，用于 ORM 和数据库操作
+pydantic==2.5.1            # Pydantic 用于数据验证
+redis==4.5.1               # Redis 客户端
+passlib[bcrypt]==1.7.4     # 密码哈希库，支持 bcrypt
+alembic==1.11.1            # 数据库迁移工具
+python-dotenv==1.0.0       # 环境变量管理
+requests==2.31.0           # HTTP 请求库，可能用于测试或与外部服务交互
+pytest==7.4.2              # 测试框架
+httpx==0.23.0              # 异步 HTTP 客户端，可能用于测试
