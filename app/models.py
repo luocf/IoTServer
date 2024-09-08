@@ -1,303 +1,264 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, DateTime, create_engine
-from sqlalchemy.orm import relationship
+import uuid
+from sqlalchemy import Column, String, Integer, Float, Text, ForeignKey, TIMESTAMP, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
-import json
-
+from sqlalchemy.orm import relationship
 import sqlalchemy
+
 print(sqlalchemy.__version__)
 
 Base = declarative_base()
 
+def generate_area_id():
+    return str(uuid.uuid4())
 
+# 超级管理员表
+class SuperAdmin(Base):
+    __tablename__ = "super_admins"
+
+    super_admin_id = Column(String(64), primary_key=True)
+    password = Column(String(256), nullable=False)
+    phone_number = Column(String(15), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+class BackgroundImage(Base):
+    __tablename__ = "background_images"
+
+    id = Column(String, primary_key=True, index=True)
+    system_id = Column(String, ForeignKey("systems.system_id"), nullable=False)
+    file_token = Column(String, unique=True, nullable=False)
+    file_path = Column(String, nullable=False)
+    original_name = Column(String, nullable=False)
+    system = relationship("System", back_populates="background_images")
+    
+# 系统表
+class System(Base):
+    __tablename__ = "systems"
+
+    system_id = Column(String(64), primary_key=True)
+    system_name = Column(String(128), unique=True, nullable=False)
+    admin_id = Column(String(64), ForeignKey("super_admins.super_admin_id"))
+    admin_password = Column(String(256), nullable=False)
+    admin_phone_number = Column(String(15), nullable=False)
+    status = Column(String(10), nullable=False)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+    background_images = relationship("BackgroundImage", back_populates="system")
+
+
+# 用户表
 class User(Base):
-    __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)
-    username = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
-    phone_number = Column(String, nullable=True)
-    email = Column(String, nullable=True, unique=True)
-    is_admin = Column(Boolean, default=False)
-    is_active = Column(Boolean, default=True)
-    logs = relationship('OperationLog', back_populates='user')
+    __tablename__ = "users"
+
+    user_id = Column(String(64), primary_key=True)
+    phone_number = Column(String(15), nullable=False)
+    password = Column(String(256), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+# 空间表
+class Area(Base):
+    __tablename__ = "areas"
+
+    area_id = Column(String(64), primary_key=True, default=generate_area_id)
+    system_id = Column(String(64), ForeignKey("systems.system_id"))
+    area_name = Column(String(128), nullable=False)
+    area_location = Column(String(256), nullable=False)
+    area_value = Column(Float, nullable=False)
+    area_height = Column(Float, nullable=False)
+    memo = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+# 验证码表
+class VerificationCode(Base):
+    __tablename__ = "verification_codes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    super_admin_id = Column(String(64), ForeignKey("super_admins.super_admin_id"))
+    code = Column(String(6), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    expires_at = Column(TIMESTAMP, nullable=False)
+
+# 设备管理
+class Host(Base):
+    __tablename__ = "hosts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    system_id = Column(String(255), nullable=False)
+    host_no = Column(Integer, unique=True, nullable=False)
+    dev_eui = Column(String(255), unique=True, nullable=False)
+    host_type = Column(String(50), nullable=False)
+    host_name = Column(String(255), nullable=True)
+    max_connection = Column(Integer, nullable=True)
+    location = Column(String(255), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    user_name = Column(String(255), nullable=True)
+    phone_num = Column(String(20), nullable=True)
+    memo = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+class NodeHistory(Base):
+    __tablename__ = "node_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    node_id = Column(Integer, ForeignKey('nodes.id'), nullable=False)  # 外键，指向 nodes 表
+    date = Column(DateTime, nullable=False, default=func.now())  # 默认是当前时间
+    param_value = Column(Float, nullable=False)  # 参数值
+
+    # 定义与 Node 的关系
+    node = relationship("Node", back_populates="history")
 
     def __repr__(self):
-        return f"<User(id={self.id}, username={self.username}, is_admin={self.is_admin})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'username': self.username,
-            'phone_number': self.phone_number,
-            'email': self.email,
-            'is_admin': self.is_admin,
-            'is_active': self.is_active,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
+        return f"<NodeHistory(node_id={self.node_id}, date={self.date}, param_value={self.param_value})>"
 
 
+class Node(Base):
+    __tablename__ = "nodes"
 
-class Space(Base):
-    __tablename__ = 'spaces'
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    description = Column(String, nullable=True)
-    created_date = Column(DateTime, default=func.now())
-    devices = relationship('Device', back_populates='space')
-    scenes = relationship('Scene', back_populates='space')
-
-    def __repr__(self):
-        return f"<Space(id={self.id}, name={self.name})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
-class Device(Base):
-    __tablename__ = 'devices'
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    eui = Column(String, unique=True, nullable=False)
-    device_type = Column(String, nullable=False)
-    timeout = Column(Integer, nullable=False)
-    space_id = Column(Integer, ForeignKey('spaces.id'))
-    online_status = Column(Boolean, default=False)
-    power_status = Column(Boolean, default=False)
-    set_temperature = Column(Float, nullable=True)
-    fan_speed = Column(String, nullable=True)
-    mode = Column(String, nullable=True)
-    created_date = Column(DateTime, default=func.now())
-    space = relationship('Space', back_populates='devices')
-    schedules = relationship('DeviceSchedule', back_populates='device')
-    alerts = relationship('Alert', back_populates='device')
-
-    def __repr__(self):
-        return f"<Device(id={self.id}, name={self.name}, device_type={self.device_type})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'eui': self.eui,
-            'device_type': self.device_type,
-            'timeout': self.timeout,
-            'space_id': self.space_id,
-            'online_status': self.online_status,
-            'power_status': self.power_status,
-            'set_temperature': self.set_temperature,
-            'fan_speed': self.fan_speed,
-            'mode': self.mode,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
-class Scene(Base):
-    __tablename__ = 'scenes'
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    space_id = Column(Integer, ForeignKey('spaces.id'))
-    device_id = Column(Integer, ForeignKey('devices.id'))
-    description = Column(String, nullable=True)
-    created_date = Column(DateTime, default=func.now())
-    space = relationship('Space', back_populates='scenes')
-    device = relationship('Device')
-
-    def __repr__(self):
-        return f"<Scene(id={self.id}, name={self.name})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'space_id': self.space_id,
-            'device_id': self.device_id,
-            'description': self.description,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
-
-class DeviceSchedule(Base):
-    __tablename__ = 'device_schedules'
-    id = Column(Integer, primary_key=True)
-    device_id = Column(Integer, ForeignKey('devices.id'))
-    task_template = Column(String, nullable=True)
-    scene_template = Column(String, nullable=True)
-    holiday_template = Column(String, nullable=True)
-    online_status = Column(Boolean, default=False)
-    created_date = Column(DateTime, default=func.now())
-    device = relationship('Device', back_populates='schedules')
-
-    def __repr__(self):
-        return f"<DeviceSchedule(id={self.id}, device_id={self.device_id})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'device_id': self.device_id,
-            'task_template': self.task_template,
-            'scene_template': self.scene_template,
-            'holiday_template': self.holiday_template,
-            'online_status': self.online_status,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
-
-class ScheduledTask(Base):
-    __tablename__ = 'scheduled_tasks'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    system_id = Column(String(255), nullable=False)
+    host_no = Column(Integer, nullable=False)
+    dev_eui = Column(String(255), unique=True, nullable=False)
+    dev_name = Column(String(255), nullable=False)
+    dev_type = Column(String(50), nullable=False)
+    dev_port = Column(Integer, nullable=True)
+    location = Column(String(255), nullable=True)
+    memo = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    task_type = Column(String, nullable=False)
-    device_id = Column(Integer, ForeignKey('devices.id'))
-    execution_period = Column(String, nullable=False)
-    execution_date_id = Column(Integer, ForeignKey('execution_dates.id'))
-    status = Column(Boolean, default=True)
-    notes = Column(String, nullable=True)
-    created_date = Column(DateTime, default=func.now())
-
-    device = relationship('Device')
-    execution_dates = relationship("ExecutionDate", back_populates="task", foreign_keys="[ExecutionDate.task_id]")
-
-    def __repr__(self):
-        return f"<ScheduledTask(id={self.id}, name={self.name}, task_type={self.task_type})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'task_type': self.task_type,
-            'device_id': self.device_id,
-            'execution_period': self.execution_period,
-            'execution_date_id': self.execution_date_id,
-            'status': self.status,
-            'notes': self.notes,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
+    # 反向引用 NodeHistory
+    history = relationship("NodeHistory", back_populates="node")
     
-class ExecutionDate(Base):
-    __tablename__ = 'execution_dates'
+    def __repr__(self):
+        return f"<Node(id={self.id}, system_id='{self.system_id}', dev_name='{self.dev_name}', dev_eui='{self.dev_eui}')>"
     
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    task_id = Column(Integer, ForeignKey('scheduled_tasks.id'))
-    created_date = Column(DateTime, default=func.now())
+class HostOperationsLog(Base):
+    __tablename__ = "host_operations_logs"
 
-    task = relationship("ScheduledTask", back_populates="execution_dates", foreign_keys="[ExecutionDate.task_id]")
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    host_no = Column(Integer, nullable=False)
+    operation = Column(String(50), nullable=False)
+    user = Column(String(255), nullable=True)
+    status_code = Column(String(10), nullable=True)
+    status_message = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+class NodeOperationsLog(Base):
+    __tablename__ = "node_operations_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    node_id = Column(Integer, nullable=False)
+    operation = Column(String(50), nullable=False)
+    user = Column(String(255), nullable=True)
+    status_code = Column(String(10), nullable=True)
+    status_message = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+# 任务管理
+class Task(Base):
+    __tablename__ = "tasks"
+    
+    task_id = Column(Integer, primary_key=True, index=True)
+    system_id = Column(String, index=True)
+    task_name = Column(String)
+    task_type = Column(String)
+    action = Column(String)
+    act_time = Column(Integer)
+    act_on_time = Column(Integer)
+    number1 = Column(Integer)
+    setup_day = Column(String)
+    repeat_mode = Column(String)
+    interval_day = Column(Integer, nullable=True)
+    act_day = Column(String, nullable=True)
+    cycle_num = Column(Integer, nullable=True)
+    concurrent = Column(Integer, nullable=True)
+    area_id = Column(String)
+    memo = Column(Text, nullable=True)
+    
+
+class TaskStartTime(Base):
+    __tablename__ = "task_start_times"
+
+    start_id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(50), ForeignKey("tasks.task_id"))
+    begin_time = Column(TIMESTAMP, nullable=False)
+
+class TaskSenseParam(Base):
+    __tablename__ = "task_sense_params"
+
+    sense_id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(50), ForeignKey("tasks.task_id"))
+    high_value = Column(Float, nullable=False)
+    high_act = Column(String(20), nullable=False)
+    low_value = Column(Float, nullable=False)
+    low_act = Column(String(20), nullable=False)
+
+class TaskRunMode(Base):
+    __tablename__ = "task_run_modes"
+
+    mode_id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(50), ForeignKey("tasks.task_id"))
+    run_mode = Column(String(20), nullable=False)
+
+class TaskHistory(Base):
+    __tablename__ = "task_histories"
+
+    history_id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(50), ForeignKey("tasks.task_id"))
+    action = Column(String(20), nullable=False)
+    run_mode = Column(String(20), nullable=False)
+    executed_at = Column(TIMESTAMP, nullable=False)
+    status = Column(String(20), nullable=False)
+    memo = Column(Text, nullable=True)
+
+# 报告管理
+class Report(Base):
+    __tablename__ = "reports"
+
+    report_id = Column(String(50), primary_key=True)
+    report_name = Column(String(100), nullable=False)
+    created_date = Column(TIMESTAMP, nullable=False)
+    user_id = Column(String(50), ForeignKey("users.user_id"))
+
+# 人员管理
+class Admin(Base):
+    __tablename__ = "admins"
+
+    admin_id = Column(String(50), primary_key=True)
+    admin_name = Column(String(100), nullable=False)
+
+class HistoryData(Base):
+    __tablename__ = "history_data"
+    
+    device_id = Column(String, primary_key=True)
+    date = Column(DateTime, nullable=False)
+    param_value = Column(Float, nullable=False)
+
+class Substation(Base):
+    __tablename__ = "substations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)  # 分站唯一标识
+    system_id = Column(String(255), nullable=False, index=True)  # 系统ID，不得修改
+    host_no = Column(Integer, nullable=False)  # 主机顺序号
+    node_no = Column(Integer, nullable=False)  # 节点顺序号
+    station_name = Column(String(255), nullable=False)  # 分站名称
+    port_no = Column(Integer, nullable=False)  # 节点端口号
+    area_id = Column(String(255), nullable=False)  # 空间编号
+    drv_type = Column(String(50), nullable=False)  # 驱动类型
+    drv_time = Column(Integer, nullable=False)  # 驱动时间，单位毫秒
+    mb_addr = Column(String(255), nullable=False)  # Modbus地址
+    mb_param = Column(String(255), nullable=False)  # Modbus通讯参数
+    memo = Column(Text, nullable=True)  # 备注说明
+    created_at = Column(TIMESTAMP, server_default=func.now())  # 创建时间
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())  # 更新时间
 
     def __repr__(self):
-        return f"<ExecutionDate(id={self.id}, name={self.name})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'task_id': self.task_id,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
-class Alert(Base):
-    __tablename__ = 'alerts'
-    id = Column(Integer, primary_key=True)
-    device_id = Column(Integer, ForeignKey('devices.id'))
-    energy_type = Column(String, nullable=False)
-    time_scale = Column(String, nullable=False)
-    upper_limit = Column(Float, nullable=False)
-    lower_limit = Column(Float, nullable=False)
-    alert_bot = Column(String, nullable=True)
-    created_date = Column(DateTime, default=func.now())
-    device = relationship('Device', back_populates='alerts')
-
-    def __repr__(self):
-        return f"<Alert(id={self.id}, device_id={self.device_id}, energy_type={self.energy_type})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'device_id': self.device_id,
-            'energy_type': self.energy_type,
-            'time_scale': self.time_scale,
-            'upper_limit': self.upper_limit,
-            'lower_limit': self.lower_limit,
-            'alert_bot': self.alert_bot,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
-
-class OperationLog(Base):
-    __tablename__ = 'operation_logs'
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    operation_description = Column(String, nullable=False)
-    operation_time = Column(DateTime, default=func.now())
-    user = relationship('User', back_populates='logs')
-
-    def __repr__(self):
-        return f"<OperationLog(id={self.id}, user_id={self.user_id}, operation_description={self.operation_description})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'operation_description': self.operation_description,
-            'operation_time': self.operation_time.isoformat() if self.operation_time else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
-class MonitoringDashboard(Base):
-    __tablename__ = 'monitoring_dashboard'
-    id = Column(Integer, primary_key=True)
-    space_id = Column(Integer, ForeignKey('spaces.id'))
-    device_online_rate = Column(Float, nullable=False)
-    total_electricity_today = Column(Float, nullable=False)
-    total_water_today = Column(Float, nullable=False)
-    indoor_environment = Column(String, nullable=True)
-    outdoor_environment = Column(String, nullable=True)
-    created_date = Column(DateTime, default=func.now())
-    space = relationship('Space')
-
-    def __repr__(self):
-        return f"<MonitoringDashboard(id={self.id}, space_id={self.space_id}, device_online_rate={self.device_online_rate})>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'space_id': self.space_id,
-            'device_online_rate': self.device_online_rate,
-            'total_electricity_today': self.total_electricity_today,
-            'total_water_today': self.total_water_today,
-            'indoor_environment': self.indoor_environment,
-            'outdoor_environment': self.outdoor_environment,
-            'created_date': self.created_date.isoformat() if self.created_date else None,
-        }
-
-    def json(self):
-        return json.dumps(self.to_dict())
-
+        return f"<Station(id={self.id}, station_name='{self.station_name}', system_id='{self.system_id}')>"

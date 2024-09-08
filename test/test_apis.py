@@ -100,7 +100,7 @@ if __name__ == "__main__":
     # space_details = get_space(space_id=12)
     # print("Space Details:", space_details)
 
-    device = create_device(name="AC Unit 3", eui="323456789ABCDEF", device_type="air_conditioner", timeout=120, space_id=1, online_status=True, power_status=True)
+    device = create_device(name="AC Unit12", eui="1023456789ABCDEF", device_type="aaa_conditioner", timeout=120, space_id=1, online_status=True, power_status=True)
     print("Created Device:", device)
 
     device_details = get_device(device_id=1)

@@ -3,16 +3,21 @@ from fastapi.responses import HTMLResponse
 
 from typing import List, Optional
 
-from app.db import engine, Base
-from app.api import users, spaces, devices
+from app.db import engine, Base, init_db
+from app.api import superadmin, users, devices, areas, tasks
 
 app = FastAPI()
 
-Base.metadata.create_all(bind=engine)
 
+@app.on_event("startup")
+def on_startup():
+    init_db()
+    
+app.include_router(superadmin.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
-app.include_router(spaces.router, prefix="/api")
 app.include_router(devices.router, prefix="/api")
+app.include_router(areas.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
 
 # WebSocket connection manager for tracking all connected WebSocket clients
 class ConnectionManager:

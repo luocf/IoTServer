@@ -16,6 +16,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # 创建基本类，用于定义数据模型
 Base = declarative_base()
 
+# 初始化数据库，创建所有表
+def init_db():
+    from .models import Base  # Importing models here to avoid circular imports
+    Base.metadata.create_all(bind=engine)
+
 # 依赖项，用于获取数据库会话
 def get_db() -> Generator:
     db = SessionLocal()
