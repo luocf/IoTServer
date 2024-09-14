@@ -2,7 +2,12 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-
+class SuperAdminLoginRequest(BaseModel):
+    superID: str
+    superPasswd: str
+    verifyCode: str
+    needAnswer: str = 'yes'
+    
 class UserRegisterRequest(BaseModel):
     userID: str
     userName: str
@@ -72,18 +77,19 @@ class AreaDeleteRequest(BaseModel):
 
 
 class SystemCreate(BaseModel):
-    system_id: str
-    system_name: str
-    admin_id: str
-    admin_password: str
-    admin_phone_num: str
-    needAnswer: str = "yes"
+    systemID: str
+    newSystem: str
+    adminID: str
+    adminPasswd: str
+    adminPhoneNum: str
+    
 
 class SystemUpdate(BaseModel):
-    system_name: Optional[str] = None
-    admin_id: Optional[str] = None
-    admin_password: Optional[str] = None
-    admin_phone_num: Optional[str] = None
+    systemID: str
+    systemName: str
+    adminID: str
+    passwd: str
+    phoneNum: str
     needAnswer: str = "yes"
 
 class SystemListResponse(BaseModel):
@@ -102,6 +108,11 @@ class UploadBackgroundImageResponse(BaseModel):
     what: str
     code: str
     fileToken: str
+
+class CheckSystemAvailabilityRequest(BaseModel):
+    newSystem: str
+    adminID: str
+    needAnswer: str = "yes"
     
 class TaskBase(BaseModel):
     systemID: str

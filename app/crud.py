@@ -18,17 +18,16 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_admin_by_credentials(db: Session, superID: str, superPasswd: str):
     return db.query(SuperAdmin).filter_by(super_admin_id=superID, password=superPasswd).first()
 
-def get_system_by_name(db: Session, system_name: str):
-    return db.query(System).filter_by(name=system_name).first()
-
 def create_new_system(db: Session, system_data: SystemCreate):
     new_system = System(
-        system_id=system_data.system_id,
+        system_id=system_data.systemID,
         system_name=system_data.newSystem,
         admin_id=system_data.adminID,
-        admin_passwd=system_data.adminPasswd,
-        admin_phone_num=system_data.adminPhoneNum
+        admin_password=system_data.adminPasswd,  # 修正字段名
+        admin_phone_number=system_data.adminPhoneNum,  # 修正字段名
+        status="active"
     )
+    
     db.add(new_system)
     try:
         db.commit()
@@ -36,26 +35,23 @@ def create_new_system(db: Session, system_data: SystemCreate):
         return new_system
     except Exception as e:
         db.rollback()
-        # 日志记录异常信息
         print(f"Error committing system creation: {e}")
         return None
 
-def update_system(db: Session, systemID: str, system_data: SystemUpdate):
-    system = db.query(System).filter_by(id=systemID).first()
+def update_system(db: Session, system_data: SystemUpdate):
+    system = db.query(System).filter_by(system_id=system_data.systemID).first()  # 使用 system_id 而非 id
     if system:
-        for key, value in system_data.dict().items():
-            setattr(system, key, value)
+        # 手动映射请求体的字段到数据库字段
+        system.system_name = system_data.systemName
+        system.admin_id = system_data.adminID
+        system.admin_password = system_data.passwd
+        system.admin_phone_number = system_data.phoneNum
+        
+        # 提交更改
         db.commit()
         db.refresh(system)
     return system
 
-def change_system_status(db: Session, systemID: str, status: bool):
-    system = db.query(System).filter_by(id=systemID).first()
-    if system:
-        system.is_active = status
-        db.commit()
-        db.refresh(system)
-    return system
 
 def list_systems(db: Session, first: int = 0, number: int = 10):
     query = db.query(System).offset(first)
@@ -71,27 +67,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_system_by_name(db: Session, system_name: str) -> System:
     return db.query(System).filter(System.system_name == system_name).first()
-
-def create_system(db: Session, system_data: Dict[str, Any]) -> System:
-    db_system = System(**system_data)
-    db.add(db_system)
-    db.commit()
-    db.refresh(db_system)
-    return db_system
-
-def update_system(db: Session, system_id: str, system_data: Dict[str, Any]) -> System:
-    db_system = db.query(System).filter(System.system_id == system_id).first()
-    if db_system:
-        for key, value in system_data.items():
-            setattr(db_system, key, value)
-        db.commit()
-        db.refresh(db_system)
-    return db_system
-
-def list_systems(db: Session, first: int, number: int) -> List[System]:
-    if number == 0:
-        return db.query(System).offset(first).all()
-    return db.query(System).offset(first).limit(number).all()
 
 def change_system_status(db: Session, system_id: str, status: bool) -> System:
     db_system = db.query(System).filter(System.system_id == system_id).first()
